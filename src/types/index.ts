@@ -43,7 +43,6 @@ export interface ChatHistoryState {
   isLoading: boolean;
 }
 
-
 // Component prop types
 export interface SearchInputProps {
   onSearch: (query: string) => void;
@@ -75,6 +74,7 @@ export interface ConversationMessage {
 export interface SearchApiRequest {
   query: string;
   conversationContext?: ConversationMessage[];
+  generateTitle?: boolean;
 }
 
 export interface SearchApiResponse {

@@ -37,7 +37,7 @@ interface SearchResponse {
 
 export async function POST(request: NextRequest) {
   try {
-    const { query, conversationContext } = await request.json();
+    const { query, conversationContext, generateTitle } = await request.json();
 
     // Validate input
     if (!query || typeof query !== 'string' || query.trim().length === 0) {
@@ -53,6 +53,31 @@ export async function POST(request: NextRequest) {
         { error: 'API keys not configured' },
         { status: 500 }
       );
+    }
+
+    // Handle title generation request
+    if (generateTitle) {
+      console.log('Generating title for:', query);
+      
+      const titleCompletion = await openai.chat.completions.create({
+        model: 'gpt-4',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a helpful assistant that creates concise, descriptive titles for chat conversations. Create a title that captures the main topic or question being asked. Keep it under 50 characters and make it clear and engaging.'
+          },
+          {
+            role: 'user',
+            content: `Create a concise, descriptive title for a chat conversation that starts with this question: "${query}"\n\nThe title should:\n- Be under 50 characters\n- Capture the main topic\n- Be clear and engaging\n- Not include quotation marks\n\nTitle:`
+          }
+        ],
+        max_tokens: 50,
+        temperature: 0.3,
+      });
+
+      const title = titleCompletion.choices[0]?.message?.content?.trim() || query.substring(0, 50);
+      
+      return NextResponse.json({ title });
     }
 
     // Step 1: Search the web with Tavily
@@ -116,8 +141,8 @@ Answer:`;
         {
           role: 'system',
           content: conversationContext && conversationContext.length > 0 ? 
-            'You are a helpful research assistant that provides accurate, well-cited answers based on search results. You maintain conversation continuity and can reference previous discussions when relevant. Always use inline citations and synthesize information from multiple sources.' :
-            'You are a helpful research assistant that provides accurate, well-cited answers based on search results. Always use inline citations and synthesize information from multiple sources.'
+            'You are Romnexity, a helpful research assistant that provides accurate, well-cited answers based on search results. You maintain conversation continuity and can reference previous discussions when relevant. Always use inline citations and synthesize information from multiple sources.' :
+            'You are Romnexity, a helpful research assistant that provides accurate, well-cited answers based on search results. Always use inline citations and synthesize information from multiple sources.'
         },
         {
           role: 'user',

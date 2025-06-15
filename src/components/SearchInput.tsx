@@ -2,7 +2,12 @@
 
 import { useState, FormEvent } from 'react';
 import { Search, Loader2 } from 'lucide-react';
-import { SearchInputProps } from '@/types';
+
+interface SearchInputProps {
+  onSearch: (query: string) => void;
+  isLoading?: boolean;
+  placeholder?: string;
+}
 
 export default function SearchInput({ 
   onSearch, 
@@ -17,7 +22,11 @@ export default function SearchInput({
     // Don't submit empty queries or when already loading
     if (!query.trim() || isLoading) return;
     
-    onSearch(query.trim());
+    const queryToSubmit = query.trim();
+    onSearch(queryToSubmit);
+    
+    // Clear the input after submitting
+    setQuery('');
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -25,7 +34,11 @@ export default function SearchInput({
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       if (query.trim() && !isLoading) {
-        onSearch(query.trim());
+        const queryToSubmit = query.trim();
+        onSearch(queryToSubmit);
+        
+        // Clear the input after submitting
+        setQuery('');
       }
     }
   };

@@ -2,9 +2,33 @@
 
 import { useState } from 'react';
 import { ExternalLink, Copy, Share2, RefreshCw, X, ChevronDown, ChevronUp } from 'lucide-react';
-import { SearchResultsProps, SearchResponse, Citation } from '@/types';
 
+// Types (should match your API types)
+interface SearchResult {
+  title: string;
+  url: string;
+  content: string;
+  score?: number;
+}
 
+interface Citation {
+  index: number;
+  url: string;
+  title: string;
+}
+
+interface SearchResponse {
+  query: string;
+  answer: string;
+  sources: SearchResult[];
+  citations: Citation[];
+}
+
+interface SearchResultsProps {
+  results: SearchResponse;
+  onNewSearch: (query: string) => void;
+  onClear: () => void;
+}
 
 export default function SearchResults({ results, onNewSearch, onClear }: SearchResultsProps) {
   const [showAllSources, setShowAllSources] = useState(false);

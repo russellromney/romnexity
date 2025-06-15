@@ -10,13 +10,11 @@ export function useChatHistory() {
     isLoading: false
   });
 
-  // Load chat history from localStorage on mount
   useEffect(() => {
     const savedChats = localStorage.getItem(STORAGE_KEY);
     if (savedChats) {
       try {
         const parsed = JSON.parse(savedChats);
-        // Convert date strings back to Date objects
         const chats = parsed.map((chat: any) => ({
           ...chat,
           createdAt: new Date(chat.createdAt),
@@ -33,7 +31,6 @@ export function useChatHistory() {
     }
   }, []);
 
-  // Save to localStorage whenever chats change
   const saveChats = (chats: Chat[]) => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(chats));
@@ -42,11 +39,10 @@ export function useChatHistory() {
     }
   };
 
-  // Create a new chat
   const createNewChat = (firstQuery?: string): string => {
     const newChatId = `chat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const title = firstQuery 
-      ? 'New Chat...' // Temporary title, will be updated when response comes
+      ? 'New Chat...'
       : 'New Chat';
 
     const newChat: Chat = {
@@ -70,15 +66,36 @@ export function useChatHistory() {
     return newChatId;
   };
 
-  // Add message to current chat and auto-rename if it's the first message
-  const addMessageToChat = (query: string, response: SearchResponse) => {
+  const generateAITitle = async (query: string): Promise<string> => {
+    try {
+      const response = await fetch('/api/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          query, 
+          generateTitle: true 
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        return data.title || query.substring(0, 50);
+      } else {
+        throw new Error('Title generation failed');
+      }
+    } catch (error) {
+      console.error('Error generating AI title:', error);
+      return query.length > 50 ? query.substring(0, 47) + '...' : query;
+    }
+  };
+
+  const addMessageToChat = async (query: string, response: SearchResponse) => {
     setChatState(prev => {
       let currentChatId = prev.currentChatId;
       
-      // If no current chat, create one
       if (!currentChatId || !prev.chats.find(c => c.id === currentChatId)) {
         const newChatId = `chat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        const title = generateChatTitle(query, response);
+        const title = 'Generating title...';
 
         const newChat: Chat = {
           id: newChatId,
@@ -110,8 +127,7 @@ export function useChatHistory() {
             ...chat,
             messages: [...chat.messages, newMessage],
             updatedAt: new Date(),
-            // Auto-rename if this is the first message
-            title: isFirstMessage ? generateChatTitle(query, response) : chat.title
+            title: isFirstMessage ? 'Generating title...' : chat.title
           };
           return updatedChat;
         }
@@ -119,6 +135,24 @@ export function useChatHistory() {
       });
 
       saveChats(updatedChats);
+
+      if (updatedChats.find(c => c.id === currentChatId)?.messages.length === 1) {
+        generateAITitle(query).then(aiTitle => {
+          setChatState(currentState => {
+            const newChats = currentState.chats.map(chat => 
+              chat.id === currentChatId 
+                ? { ...chat, title: aiTitle }
+                : chat
+            );
+            saveChats(newChats);
+            return {
+              ...currentState,
+              chats: newChats
+            };
+          });
+        });
+      }
+
       return {
         ...prev,
         chats: updatedChats,
@@ -127,69 +161,102 @@ export function useChatHistory() {
     });
   };
 
-  // Generate a smart chat title based on query and response
   const generateChatTitle = (query: string, response: SearchResponse): string => {
     try {
-      // Extract key topics from the query and response
-      const queryWords = query.toLowerCase().split(' ').filter(word => 
-        word.length > 3 && !['what', 'how', 'why', 'when', 'where', 'the', 'and', 'but', 'for', 'with', 'about'].includes(word)
+      const cleanQuery = query.trim();
+      
+      const queryWords = cleanQuery.toLowerCase()
+        .replace(/[^\w\s]/g, ' ')
+        .split(/\s+/)
+        .filter(word => 
+          word.length > 2 && 
+          !['what', 'how', 'why', 'when', 'where', 'who', 'which', 'the', 'and', 'but', 'for', 'with', 'about', 'this', 'that', 'are', 'is', 'can', 'could', 'would', 'should', 'will', 'does', 'did', 'do'].includes(word)
+        );
+      
+      const properNouns = response.answer.match(/\b[A-Z][a-zA-Z]*(?:\s+[A-Z][a-zA-Z]*)*\b/g) || [];
+      const uniqueProperNouns = [...new Set(properNouns)].filter(noun => 
+        noun.length > 2 && 
+        !['The', 'This', 'That', 'These', 'Those', 'When', 'Where', 'What', 'How', 'Why', 'Who'].includes(noun)
       );
       
-      // Try to extract main topics from the response
-      const responseWords = response.answer.toLowerCase().split(' ').filter(word => 
-        word.length > 4 && !['what', 'how', 'why', 'when', 'where', 'the', 'and', 'but', 'for', 'with', 'about', 'this', 'that', 'they', 'them', 'these', 'those'].includes(word)
-      );
+      const quotedTerms = response.answer.match(/"([^"]+)"/g) || [];
+      const technicalTerms = response.answer.match(/\b[A-Z][a-zA-Z]*[A-Z][a-zA-Z]*\b/g) || [];
       
-      // Look for capitalized words in the original response (likely proper nouns/important terms)
-      const properNouns = response.answer.match(/\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b/g) || [];
-      
-      // Priority order for title generation
       let title = '';
       
-      // 1. Try to use proper nouns from response
-      if (properNouns.length > 0) {
-        const mainTopic = properNouns[0];
-        if (queryWords.some(word => word.includes('what'))) {
+      if (uniqueProperNouns.length > 0) {
+        const mainTopic = uniqueProperNouns[0];
+        
+        if (cleanQuery.toLowerCase().includes('what is') || cleanQuery.toLowerCase().includes('what are')) {
           title = `What is ${mainTopic}?`;
-        } else if (queryWords.some(word => word.includes('how'))) {
-          title = `How ${mainTopic} works`;
+        } else if (cleanQuery.toLowerCase().includes('how to') || cleanQuery.toLowerCase().includes('how do')) {
+          title = `How to use ${mainTopic}`;
+        } else if (cleanQuery.toLowerCase().includes('why')) {
+          title = `Why ${mainTopic}?`;
+        } else if (cleanQuery.toLowerCase().includes('compare') || cleanQuery.toLowerCase().includes('vs')) {
+          title = `${mainTopic} Comparison`;
+        } else if (cleanQuery.toLowerCase().includes('best') || cleanQuery.toLowerCase().includes('top')) {
+          title = `Best ${mainTopic} Options`;
         } else {
-          title = `About ${mainTopic}`;
+          title = mainTopic;
         }
       }
-      // 2. Use key words from query
       else if (queryWords.length > 0) {
-        const mainKeywords = queryWords.slice(0, 3).join(' ');
-        if (query.toLowerCase().startsWith('what')) {
-          title = `What is ${mainKeywords}?`;
-        } else if (query.toLowerCase().startsWith('how')) {
-          title = `How to ${mainKeywords}`;
-        } else if (query.toLowerCase().startsWith('why')) {
-          title = `Why ${mainKeywords}?`;
+        const keyTerms = queryWords.slice(0, 2).join(' ');
+        
+        if (cleanQuery.toLowerCase().startsWith('what')) {
+          title = `About ${keyTerms}`;
+        } else if (cleanQuery.toLowerCase().startsWith('how')) {
+          title = `How to ${keyTerms}`;
+        } else if (cleanQuery.toLowerCase().startsWith('why')) {
+          title = `Why ${keyTerms}`;
+        } else if (cleanQuery.toLowerCase().includes('compare')) {
+          title = `${keyTerms} comparison`;
+        } else if (cleanQuery.toLowerCase().includes('best') || cleanQuery.toLowerCase().includes('top')) {
+          title = `Best ${keyTerms}`;
         } else {
-          title = `${mainKeywords.charAt(0).toUpperCase() + mainKeywords.slice(1)}`;
+          title = keyTerms.charAt(0).toUpperCase() + keyTerms.slice(1);
         }
       }
-      // 3. Fallback to cleaned up original query
+      else if (technicalTerms.length > 0) {
+        title = technicalTerms[0] ?? 'New Chat';
+      } else if (quotedTerms.length > 0) {
+        title = (quotedTerms[0] ?? 'New Chat').replace(/"/g, '');
+      }
       else {
-        title = query.length > 50 ? query.substring(0, 47) + '...' : query;
+        title = cleanQuery
+          .replace(/^(what is|what are|how to|how do|how does|why|when|where|who|which)\s*/i, '')
+          .replace(/\?+$/, '')
+          .trim();
+        
+        if (title.length > 0) {
+          title = title.charAt(0).toUpperCase() + title.slice(1);
+        } else {
+          title = cleanQuery;
+        }
       }
       
-      // Ensure title isn't too long
-      if (title.length > 60) {
-        title = title.substring(0, 57) + '...';
+      if (title.length > 50) {
+        title = title.substring(0, 47) + '...';
       }
       
-      return title || query.substring(0, 50);
+      if (!title || title.length < 3) {
+        title = cleanQuery.length > 50 
+          ? cleanQuery.substring(0, 47) + '...' 
+          : cleanQuery;
+      }
+      
+      return title;
       
     } catch (error) {
       console.error('Error generating chat title:', error);
-      // Fallback to simple query truncation
-      return query.length > 50 ? query.substring(0, 47) + '...' : query;
+      const cleanQuery = query.trim();
+      return cleanQuery.length > 50 
+        ? cleanQuery.substring(0, 47) + '...' 
+        : cleanQuery;
     }
   };
 
-  // Switch to a different chat
   const switchToChat = (chatId: string) => {
     setChatState(prev => ({
       ...prev,
@@ -197,7 +264,6 @@ export function useChatHistory() {
     }));
   };
 
-  // Delete a chat
   const deleteChat = (chatId: string) => {
     setChatState(prev => {
       const updatedChats = prev.chats.filter(chat => chat.id !== chatId);
@@ -214,7 +280,6 @@ export function useChatHistory() {
     });
   };
 
-  // Clear all chat history
   const clearAllChats = () => {
     setChatState({
       chats: [],
@@ -224,7 +289,6 @@ export function useChatHistory() {
     localStorage.removeItem(STORAGE_KEY);
   };
 
-  // Get current chat
   const getCurrentChat = (): Chat | null => {
     if (!chatState.currentChatId) return null;
     return chatState.chats.find(chat => chat.id === chatState.currentChatId) || null;
