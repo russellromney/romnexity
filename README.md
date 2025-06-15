@@ -17,7 +17,14 @@ Add a file called `.env.local` to the root of the project with the following con
 ```shell
 OPENAI_API_KEY=YOUR_API_KEY
 TAVILY_API_KEY=YOUR_API_KEY
+```
 
+You'll need Node and npm installed locally: Find them here: [Install npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm/)
+
+Install dependencies with: 
+
+```shell
+npm install
 ```
 
 Then, run the development server:
