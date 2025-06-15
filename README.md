@@ -1,8 +1,26 @@
+# Romnexity
+
+This is a very basic clone of Perplexity AI's search app. 
+
+It was created with assistance from Claude 4.0 chat and Continue.dev with Mistral AI and Claude 3.5 Sonnet API keys. It uses Tavily's search API and and OpenAI's GPT-4o API.
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
 
-First, run the development server:
+You'll need to get a Tavily API key and an OpenAI API key to run this project.
+
+You can get a Tavily API key by signing up at [Tavily](https://tavily.com/).
+
+Add a file called `.env.local` to the root of the project with the following content:
+
+```shell
+OPENAI_API_KEY=YOUR_API_KEY
+TAVILY_API_KEY=YOUR_API_KEY
+
+```
+
+Then, run the development server:
 
 ```bash
 npm run dev
@@ -36,12 +54,3 @@ The easiest way to deploy your Next.js app is to use the [Vercel Platform](https
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
 
 
-## Running locally
-
-Add a file called `.env.local` to the root of the project with the following content:
-
-```shell
-OPENAI_API_KEY=YOUR_API_KEY
-TAVILY_API_KEY=YOUR_API_KEY
-
-```
