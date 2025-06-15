@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { JSXElementConstructor, Key, ReactElement, ReactNode, ReactPortal, useState } from 'react';
 import SearchInput from '@/components/SearchInput';
 import SearchResults from '@/components/SearchResults';
 import ChatSidebar from '@/components/ChatSidebar';
@@ -54,7 +54,7 @@ export default function HomePage() {
 
     try {
       // Prepare conversation context
-      const conversationContext = currentChat ? currentChat.messages.map(msg => ({
+      const conversationContext = currentChat ? currentChat.messages.map((msg: { query: any; response: { answer: any; }; }) => ({
         query: msg.query,
         answer: msg.response.answer
       })) : [];
@@ -155,7 +155,7 @@ export default function HomePage() {
                 <Menu className="h-5 w-5" />
               </button>
               <Sparkles className="h-8 w-8 text-blue-600" />
-              <h1 className="text-xl font-bold">Romnexity.AI</h1>
+              <h1 className="text-xl font-bold">SearchGPT</h1>
             </div>
             <div className="text-sm text-gray-500">
               {chats.length} conversations
@@ -281,7 +281,7 @@ export default function HomePage() {
                 <h3 className="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-2">
                   Previous Conversation
                 </h3>
-                {currentChat.messages.map((message, index) => (
+                {currentChat.messages.map((message: { id: Key | null | undefined; query: string | number | bigint | boolean | ReactElement<unknown, string | JSXElementConstructor<any>> | Iterable<ReactNode> | ReactPortal | Promise<string | number | bigint | boolean | ReactPortal | ReactElement<unknown, string | JSXElementConstructor<any>> | Iterable<ReactNode> | null | undefined> | null | undefined; timestamp: string | number | Date; response: SearchResponse; }, index: number) => (
                   <div key={message.id} className="border-l-4 border-blue-200 pl-4">
                     <div className="mb-2">
                       <div className="flex items-center justify-between">

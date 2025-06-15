@@ -58,7 +58,8 @@ export async function POST(request: NextRequest) {
     // Step 1: Search the web with Tavily
     console.log('Searching for:', query);
     
-    const searchResults = await tavilyClient.search(query, {
+    const searchResults = await tavilyClient.search({
+      query: query,
       search_depth: 'basic',
       max_results: 8,
       include_answer: false,
