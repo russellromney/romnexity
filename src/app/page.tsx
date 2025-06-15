@@ -129,6 +129,17 @@ export default function HomePage() {
     }));
   };
 
+  const handleClearAllChats = () => {
+    clearAllChats();
+    // Also clear local search state when clearing all chats
+    setSearchState({
+      isLoading: false,
+      error: null,
+      results: null,
+      searchHistory: []
+    });
+  };
+
   const handleRetry = () => {
     if (searchState.results?.query) {
       handleSearch(searchState.results.query);
@@ -170,7 +181,7 @@ export default function HomePage() {
         onNewChat={handleNewChat}
         onSwitchChat={handleSwitchToChat}
         onDeleteChat={deleteChat}
-        onClearAll={clearAllChats}
+        onClearAll={handleClearAllChats}
         isOpen={sidebarOpen}
         onToggle={() => setSidebarOpen(!sidebarOpen)}
       />
@@ -281,8 +292,8 @@ export default function HomePage() {
             {/* ALL CHAT MESSAGES - Display chronologically in chat bubble style */}
             {(isViewingExistingChat || searchState.results || searchState.isLoading || currentQuery) && (
               <div className="space-y-6 mb-8">
-                {/* Previous messages from chat history */}
-                {isViewingExistingChat && currentChat.messages
+                {/* Previous messages from chat history - ONLY show if no current results */}
+                {isViewingExistingChat && !searchState.results && !searchState.isLoading && currentChat.messages
                   .slice()
                   .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
                   .map((message, index) => (
@@ -315,7 +326,41 @@ export default function HomePage() {
                     </div>
                   ))}
 
-                {/* Current search in progress */}
+                {/* Show ALL messages including current search when there are results */}
+                {(searchState.results || searchState.isLoading) && isViewingExistingChat && currentChat.messages
+                  .slice()
+                  .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+                  .map((message, index) => (
+                    <div key={message.id} className="space-y-4">
+                      {/* User Query */}
+                      <div className="flex justify-end">
+                        <div className="max-w-[80%] bg-blue-600 text-white rounded-lg px-4 py-2">
+                          <p className="text-sm font-medium mb-1">You</p>
+                          <p>{message.query}</p>
+                          <p className="text-xs text-blue-100 mt-1">
+                            {new Date(message.timestamp).toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+                      
+                      {/* AI Response */}
+                      <div className="flex justify-start">
+                        <div className="max-w-[90%] bg-white border border-gray-200 rounded-lg p-4">
+                          <div className="flex items-center mb-2">
+                            <Sparkles className="h-4 w-4 text-blue-600 mr-2" />
+                            <p className="text-sm font-medium text-gray-900">Romnexity</p>
+                          </div>
+                          <SearchResults
+                            results={message.response}
+                            onNewSearch={handleSearch}
+                            onClear={() => {}}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
+                {/* Current search in progress - show user query and loading */}
                 {searchState.isLoading && currentQuery && (
                   <div className="space-y-4">
                     {/* Show the query being processed */}
@@ -352,19 +397,17 @@ export default function HomePage() {
                   </div>
                 )}
 
-                {/* Current search results */}
-                {searchState.results && (
+                {/* Current search results - ONLY for new chats or first-time results */}
+                {searchState.results && !isViewingExistingChat && (
                   <div className="space-y-4">
-                    {/* Show user query if not already shown in loading */}
-                    {!searchState.isLoading && (
-                      <div className="flex justify-end">
-                        <div className="max-w-[80%] bg-blue-600 text-white rounded-lg px-4 py-2">
-                          <p className="text-sm font-medium mb-1">You</p>
-                          <p>{searchState.results.query}</p>
-                          <p className="text-xs text-blue-100 mt-1">Just now</p>
-                        </div>
+                    {/* Show user query */}
+                    <div className="flex justify-end">
+                      <div className="max-w-[80%] bg-blue-600 text-white rounded-lg px-4 py-2">
+                        <p className="text-sm font-medium mb-1">You</p>
+                        <p>{searchState.results.query}</p>
+                        <p className="text-xs text-blue-100 mt-1">Just now</p>
                       </div>
-                    )}
+                    </div>
                     
                     {/* AI Response */}
                     <div className="flex justify-start">
@@ -438,7 +481,7 @@ export default function HomePage() {
             </div>
             
             {/* Suggested follow-up questions for existing chats */}
-            {isViewingExistingChat && !searchState.isLoading && (
+            {isViewingExistingChat && !searchState.isLoading && !searchState.results && (
               <div className="mt-3">
                 <div className="flex flex-wrap gap-2 justify-center">
                   {[
@@ -460,7 +503,7 @@ export default function HomePage() {
             )}
 
             {/* Quick suggestions for new users */}
-            {!isViewingExistingChat && chats.length === 0 && !searchState.isLoading && (
+            {!isViewingExistingChat && chats.length === 0 && !searchState.isLoading && !searchState.results && (
               <div className="mt-3">
                 <div className="flex flex-wrap gap-2 justify-center">
                   {[
